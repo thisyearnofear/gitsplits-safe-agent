@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@0xsplits/splits-sdk": "^5.0.0",
     "@google/generative-ai": "^0.21.0",
     "@langchain/community": "^0.3.30",
     "@langchain/core": "^0.3.40",
@@ -16,6 +17,8 @@
     "@langchain/ollama": "^0.2.0",
     "@octokit/rest": "^21.1.1",
     "@safe-global/protocol-kit": "^5.2.2",
+    "@safe-global/safe-core-sdk-types": "^5.1.0",
+    "@safe-global/types-kit": "^1.0.2",
     "dotenv": "^16.4.7",
     "ethers": "^6.13.5",
     "generative-ai": "^0.1.4",

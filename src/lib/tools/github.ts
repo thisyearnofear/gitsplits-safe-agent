@@ -34,7 +34,8 @@ export interface Contributor {
   lastActive: string;
   isUpstreamContributor: boolean;
   isForkContributor: boolean;
-  percentage?: number;
+  percentage: number;
+  wallet?: string;
 }
 
 export interface RepositoryAnalysis {
