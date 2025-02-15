@@ -14,6 +14,7 @@
     "@langchain/core": "^0.3.40",
     "@langchain/langgraph": "^0.2.46",
     "@langchain/ollama": "^0.2.0",
+    "@octokit/rest": "^21.1.1",
     "@safe-global/protocol-kit": "^5.2.2",
     "dotenv": "^16.4.7",
     "ethers": "^6.13.5",

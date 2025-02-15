@@ -5,23 +5,24 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { tool } from "@langchain/core/tools";
 import { Client } from "langsmith";
-import {
-  BaseChatModel,
-  BaseChatModelCallOptions,
-} from "@langchain/core/language_models/chat_models";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { BaseMessage, AIMessage } from "@langchain/core/messages";
 import { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
 import { ChatResult } from "@langchain/core/outputs";
 
 import { config } from "./config";
+import { analyzeRepository, analyzeRepositoryMetadata } from "./tools/github";
 import {
-  deployNewSafe,
-  deployNewSafeMetadata,
-  getEthBalance,
-  getEthBalanceMetadata,
-} from "./tools/safe";
-import { getEthPriceUsd, getEthPriceUsdMetadata } from "./tools/prices";
-import { multiply, multiplyMetadata } from "./tools/math";
+  createSplitsContract,
+  createSplitsContractMetadata,
+  SplitsConfig,
+} from "./tools/splits";
+import {
+  verifyIdentity,
+  verifyIdentityMetadata,
+  claimShare,
+  claimShareMetadata,
+} from "./tools/identity";
 
 // Initialize LangSmith client if configured
 let langsmith: Client | null = null;
@@ -35,7 +36,7 @@ if (config.langsmith.apiKey && config.langsmith.tracing) {
 // Create a proper LangChain chat model wrapper for Gemini
 class GeminiChatModel extends BaseChatModel {
   private genAI: GoogleGenerativeAI;
-  private tools: any[] = [];
+  private tools: Array<{ name: string; description: string }> = [];
 
   constructor(apiKey: string) {
     super({});
@@ -46,19 +47,75 @@ class GeminiChatModel extends BaseChatModel {
     return "gemini";
   }
 
-  bindTools(tools: any[]): this {
+  bindTools(tools: Array<{ name: string; description: string }>): this {
     this.tools = tools;
     return this;
   }
 
   async _generate(
     messages: BaseMessage[],
-    options: this["ParsedCallOptions"],
+    _options: this["ParsedCallOptions"],
     runManager?: CallbackManagerForLLMRun
   ): Promise<ChatResult> {
     const lastMessage = messages[messages.length - 1];
-    const prompt = `You are a helpful AI assistant that can use tools to accomplish tasks. You have access to the following tools:
+    const prompt = `You are GitSplits, an AI agent that helps developers set up revenue sharing for their open source projects. You can:
+1. Analyze GitHub repositories to determine contribution splits
+2. Create and manage splits contracts through Safe accounts
+3. Help contributors verify their identity and claim their share
 
+IMPORTANT: When analyzing repositories:
+1. NEVER make up or hallucinate contributors - only report actual contributors from the API response
+2. If you encounter any errors (rate limits, missing data, etc.), clearly explain the issue to the user
+3. Always clearly distinguish between:
+   - Original repository contributors
+   - Fork contributors (if it's a fork)
+4. Include exact commit counts and percentages
+5. Provide GitHub profile URLs for verification
+
+When encountering errors, format the response like this:
+\`\`\`
+Error Analyzing Repository: [owner]/[repo]
+Error: [exact error message]
+
+Possible Solutions:
+1. [solution 1]
+2. [solution 2]
+...
+\`\`\`
+
+For successful analyses, format repository analysis results exactly like this:
+\`\`\`
+Repository Analysis: [owner]/[repo]
+
+[If fork] Fork of [original_owner]/[original_repo]
+Original Repository:
+- Contributors: [number]
+- Total Commits: [number]
+- Created: [date]
+- URL: [github_url]
+- Description: [description]
+
+[If fork] Fork Statistics:
+- Created: [fork_created_date]
+- New Commits: [number]
+- Last Push: [date]
+
+Contributors (Original Repository):
+[For each upstream contributor]
+1. [username] (https://github.com/[username])
+   - [number] commits ([percentage]%)
+   - Original contributor
+   - Last active: [date]
+
+[If fork] Contributors (Fork):
+[For each fork contributor]
+1. [username] (https://github.com/[username])
+   - [number] commits ([percentage]%)
+   - Fork contributor
+   - Last active: [date]
+\`\`\`
+
+You have access to the following tools:
 ${this.tools.map((t) => `${t.name}: ${t.description}`).join("\n")}
 
 To use a tool, use the following format:
@@ -66,8 +123,6 @@ Thought: I need to use X tool because...
 Action: the name of the tool
 Action Input: the input to the tool
 Observation: the result of the tool
-
-After using tools, you should provide a final answer in a clear format.
 
 Human request: ${lastMessage.content}
 
@@ -107,10 +162,18 @@ const geminiModel = new GeminiChatModel(config.model.geminiApiKey || "");
 // Export the runAgent function
 export async function runAgent(prompt: string) {
   const agentTools = [
-    tool(getEthBalance, getEthBalanceMetadata),
-    tool(getEthPriceUsd, getEthPriceUsdMetadata),
-    tool(multiply, multiplyMetadata),
-    tool(deployNewSafe, deployNewSafeMetadata),
+    tool(
+      async (input: { owner: string; repo: string }) =>
+        analyzeRepository(input.owner, input.repo),
+      analyzeRepositoryMetadata
+    ),
+    // TODO: Implement splits contract tools
+    // tool(
+    //   async (input: SplitsConfig) => createSplitsContract(input),
+    //   createSplitsContractMetadata
+    // ),
+    tool(verifyIdentity, verifyIdentityMetadata),
+    tool(claimShare, claimShareMetadata),
   ];
 
   const agentCheckpointer = new MemorySaver();
@@ -121,9 +184,16 @@ export async function runAgent(prompt: string) {
     checkpointSaver: agentCheckpointer,
   });
 
-  const agentFinalState = await agent.invoke({
-    messages: [new HumanMessage(prompt)],
-  });
+  const agentFinalState = await agent.invoke(
+    {
+      messages: [new HumanMessage(prompt)],
+    },
+    {
+      configurable: {
+        thread_id: "gitsplits-" + Date.now().toString(),
+      },
+    }
+  );
 
   return agentFinalState.messages[agentFinalState.messages.length - 1].content;
 }

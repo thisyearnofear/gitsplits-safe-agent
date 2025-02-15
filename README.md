@@ -1,6 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitSplits: Revenue Sharing for Open Source
 
-## Getting Started
+GitSplits helps developers set up fair revenue sharing for their open source projects. It analyzes GitHub repositories to determine contribution splits and manages revenue distribution through Safe accounts.
+
+## Current State
+
+- ✅ GitHub Analysis: Analyze repositories to determine contribution splits
+  - Handles both original repositories and forks
+  - Tracks upstream vs fork contributions
+  - Provides detailed contributor statistics
+- ✅ Safe Integration: Created test Safe at `0x38A7F83e02B8c0B40BFc8Ee138581051A32A80FA`
+- 🚧 Identity Verification: In progress
+- 🚧 Smart Contracts: Planned
+
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Set up environment variables in `.env`:
+
+```env
+GITHUB_TOKEN=your_github_token
+AGENT_PRIVATE_KEY=your_agent_private_key
+AGENT_ADDRESS=your_agent_address
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+3. Run the CLI:
+
+```bash
+npm run cli
+# or
+npx tsx src/cli.ts
+```
+
+## Example Commands
+
+Analyze a repository:
+
+```
+Analyze the contribution splits for repository owner/repo
+```
+
+Create a Gitsplit:
+
+```
+Create a Gitsplit for repository owner/repo with donations enabled
+```
+
+Verify identity and claim share:
+
+```
+Help me claim my share for repository owner/repo
+```
+
+## Development Setup
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 First, run the development server:
 
@@ -20,8 +79,6 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
-
 To learn more about Next.js, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
@@ -29,12 +86,20 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Safe Integration
 
 Created a new Safe at address: 0x38A7F83e02B8c0B40BFc8Ee138581051A32A80FA
+
 View Safe at:
 https://app.safe.global/home?safe=sep:0x38A7F83e02B8c0B40BFc8Ee138581051A32A80FA
+
+## Next Steps
+
+1. Complete identity verification system
+2. Implement smart contracts for revenue distribution
+3. Add web interface for easier interaction
+4. Set up automated testing
+
+## Contributing
+
+Contributions are welcome! Please check the issues page for current tasks.
