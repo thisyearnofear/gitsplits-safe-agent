@@ -1,0 +1,116 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SafeAccount {
+  id            String   @id @default(uuid())
+  address       String   @unique
+  chainId       Int
+  ownerAddress  String
+  createdAt     DateTime @default(now())
+  lastAccessedAt DateTime @updatedAt
+
+  // Relations
+  splitsContracts SplitsContract[]
+  accessKeys      AccessKey[]
+  accessLogs      AccessLog[]
+
+  @@index([address])
+  @@index([ownerAddress])
+}
+
+model SplitsContract {
+  id          String   @id @default(uuid())
+  address     String   @unique
+  chainId     Int
+  controller  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  safeId      String
+  safe        SafeAccount @relation(fields: [safeId], references: [id])
+  contributors Contributor[]
+
+  @@index([address])
+  @@index([controller])
+  @@index([safeId])
+}
+
+model Contributor {
+  id                 String   @id @default(uuid())
+  githubUsername     String
+  walletAddress      String?
+  percentage         Float
+  verificationStatus String   // UNASSIGNED, PENDING, VERIFIED
+  verifiedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  splitsContractId   String
+  splitsContract     SplitsContract @relation(fields: [splitsContractId], references: [id])
+  verificationSessions VerificationSession[]
+
+  @@index([githubUsername])
+  @@index([walletAddress])
+  @@index([splitsContractId])
+}
+
+model VerificationSession {
+  id            String   @id @default(uuid())
+  nonce         String   @unique
+  message       String
+  status        String   // PENDING, COMPLETED, EXPIRED
+  expiresAt     DateTime
+  verifiedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  contributorId String
+  contributor   Contributor @relation(fields: [contributorId], references: [id])
+
+  @@index([nonce])
+  @@index([contributorId])
+}
+
+model AccessKey {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  expiresAt   DateTime?
+  permissions Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  safeId      String
+  safe        SafeAccount @relation(fields: [safeId], references: [id])
+  accessLogs  AccessLog[]
+
+  @@index([key])
+  @@index([safeId])
+}
+
+model AccessLog {
+  id          String   @id @default(uuid())
+  action      String
+  metadata    Json
+  timestamp   DateTime @default(now())
+
+  // Relations
+  accessKeyId String
+  accessKey   AccessKey @relation(fields: [accessKeyId], references: [id])
+  safeId      String
+  safe        SafeAccount @relation(fields: [safeId], references: [id])
+
+  @@index([accessKeyId])
+  @@index([safeId])
+} 

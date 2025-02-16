@@ -6,7 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:migrate": "dotenv -e .env -- prisma migrate dev",
+    "db:deploy": "dotenv -e .env -- prisma migrate deploy",
+    "db:studio": "dotenv -e .env -- prisma studio",
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@0xsplits/splits-sdk": "^5.0.0",
@@ -16,10 +21,13 @@
     "@langchain/langgraph": "^0.2.46",
     "@langchain/ollama": "^0.2.0",
     "@octokit/rest": "^21.1.1",
+    "@prisma/client": "^6.3.1",
     "@safe-global/protocol-kit": "^5.2.2",
     "@safe-global/safe-core-sdk-types": "^5.1.0",
     "@safe-global/types-kit": "^1.0.2",
+    "@supabase/supabase-js": "^2.48.1",
     "dotenv": "^16.4.7",
+    "dotenv-cli": "^8.0.0",
     "ethers": "^6.13.5",
     "generative-ai": "^0.1.4",
     "langsmith": "^0.3.7",
@@ -37,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
     "postcss": "^8",
+    "prisma": "^6.3.1",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.19.2",
     "typescript": "^5"
