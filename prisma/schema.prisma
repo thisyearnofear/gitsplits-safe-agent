@@ -34,11 +34,16 @@ model SplitsContract {
   controller  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  status      String   @default("PENDING") // PENDING, ACTIVE, PAUSED, CLOSED
+  lastDistributionAt DateTime?
+  totalDistributed Float @default(0)
 
   // Relations
   safeId      String
   safe        SafeAccount @relation(fields: [safeId], references: [id])
   contributors Contributor[]
+  invitations ContributorInvitation[]
+  distributions Distribution[]
 
   @@index([address])
   @@index([controller])
@@ -54,11 +59,17 @@ model Contributor {
   verifiedAt         DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  lastClaimAt        DateTime?
+  totalClaimed       Float    @default(0)
+  invitationEmail    String?
+  invitationStatus   String?  // PENDING, ACCEPTED, EXPIRED
 
   // Relations
   splitsContractId   String
   splitsContract     SplitsContract @relation(fields: [splitsContractId], references: [id])
   verificationSessions VerificationSession[]
+  claims             Claim[]
+  invitation         ContributorInvitation?
 
   @@index([githubUsername])
   @@index([walletAddress])
@@ -124,4 +135,56 @@ model RepositoryAnalysisCache {
 
   @@unique([owner, repo], name: "owner_repo")
   @@map("repository_analysis_cache")
+}
+
+model ContributorInvitation {
+  id          String   @id @default(uuid())
+  email       String?
+  token       String   @unique
+  expiresAt   DateTime
+  status      String   // PENDING, ACCEPTED, EXPIRED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  splitsContractId String
+  splitsContract   SplitsContract @relation(fields: [splitsContractId], references: [id])
+  contributorId    String         @unique
+  contributor      Contributor    @relation(fields: [contributorId], references: [id])
+
+  @@index([token])
+  @@index([splitsContractId])
+}
+
+model Distribution {
+  id          String   @id @default(uuid())
+  amount      Float
+  timestamp   DateTime @default(now())
+  status      String   // PENDING, COMPLETED, FAILED
+  txHash      String?
+
+  // Relations
+  splitsContractId String
+  splitsContract   SplitsContract @relation(fields: [splitsContractId], references: [id])
+  claims           Claim[]
+
+  @@index([splitsContractId])
+  @@index([txHash])
+}
+
+model Claim {
+  id          String   @id @default(uuid())
+  amount      Float
+  status      String   // PENDING, COMPLETED, FAILED
+  txHash      String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  contributorId    String
+  contributor      Contributor  @relation(fields: [contributorId], references: [id])
+  distributionId   String
+  distribution     Distribution @relation(fields: [distributionId], references: [id])
+
+  @@index([contributorId])
+  @@index([distributionId])
 } 

@@ -12,7 +12,8 @@
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "test:memory": "NODE_ENV=test tsx --tsconfig tsconfig.test.json scripts/test-memory-verification.ts"
+    "test:memory": "NODE_ENV=test tsx --tsconfig tsconfig.test.json scripts/test-memory-verification.ts",
+    "test:e2e": "NODE_ENV=test tsx --tsconfig tsconfig.test.json scripts/test-end-to-end.ts"
   },
   "dependencies": {
     "@0xsplits/splits-sdk": "^5.0.0",

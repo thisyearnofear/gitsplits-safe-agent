@@ -26,6 +26,18 @@ import {
   claimShare,
   claimShareMetadata,
 } from "./tools/identity";
+import {
+  createSplitsWithInvitations,
+  createSplitsWithInvitationsMetadata,
+  acceptSplitsInvitation,
+  acceptSplitsInvitationMetadata,
+  checkSplitsForNewFunds,
+  checkSplitsForNewFundsMetadata,
+  processPendingDistributions,
+  processPendingDistributionsMetadata,
+  getClaimableAmount,
+  getClaimableAmountMetadata,
+} from "./tools/lifecycle";
 
 // Initialize LangSmith client if configured
 let langsmith: Client | null = null;
@@ -266,6 +278,11 @@ const agentTools = [
     verifyIdentityMetadata
   ),
   tool(claimShare, claimShareMetadata),
+  tool(createSplitsWithInvitations, createSplitsWithInvitationsMetadata),
+  tool(acceptSplitsInvitation, acceptSplitsInvitationMetadata),
+  tool(checkSplitsForNewFunds, checkSplitsForNewFundsMetadata),
+  tool(processPendingDistributions, processPendingDistributionsMetadata),
+  tool(getClaimableAmount, getClaimableAmountMetadata),
 ];
 
 // Export the enhanced runAgent function

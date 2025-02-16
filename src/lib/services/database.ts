@@ -636,6 +636,176 @@ export class DatabaseService {
       );
     }
   }
+
+  // Contributor Invitations
+  async createContributorInvitation(params: {
+    splitsContractId: string;
+    contributorId: string;
+    email: string;
+    token: string;
+    expiresAt: Date;
+  }) {
+    try {
+      await this.logOperation("createContributorInvitation", params);
+
+      return await prisma.contributorInvitation.create({
+        data: {
+          splitsContractId: params.splitsContractId,
+          contributorId: params.contributorId,
+          email: params.email,
+          token: params.token,
+          expiresAt: params.expiresAt,
+          status: "PENDING",
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to create contributor invitation",
+        "CREATE_ERROR",
+        error
+      );
+    }
+  }
+
+  async getContributorInvitation(token: string) {
+    try {
+      return await prisma.contributorInvitation.findUnique({
+        where: { token },
+        include: {
+          contributor: true,
+          splitsContract: true,
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get contributor invitation",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  async updateContributorInvitation(id: string, data: { status: string }) {
+    try {
+      return await prisma.contributorInvitation.update({
+        where: { id },
+        data,
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to update contributor invitation",
+        "UPDATE_ERROR",
+        error
+      );
+    }
+  }
+
+  // Distributions
+  async createDistribution(params: {
+    splitsContractId: string;
+    amount: number;
+    status: string;
+  }) {
+    try {
+      await this.logOperation("createDistribution", params);
+
+      return await prisma.distribution.create({
+        data: params,
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to create distribution",
+        "CREATE_ERROR",
+        error
+      );
+    }
+  }
+
+  async updateDistribution(
+    id: string,
+    data: { status: string; txHash?: string }
+  ) {
+    try {
+      return await prisma.distribution.update({
+        where: { id },
+        data,
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to update distribution",
+        "UPDATE_ERROR",
+        error
+      );
+    }
+  }
+
+  async getPendingDistributions() {
+    try {
+      return await prisma.distribution.findMany({
+        where: { status: "PENDING" },
+        include: {
+          splitsContract: {
+            include: {
+              contributors: true,
+            },
+          },
+          claims: true,
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get pending distributions",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  // Claims
+  async createClaim(params: {
+    contributorId: string;
+    distributionId: string;
+    amount: number;
+    status: string;
+  }) {
+    try {
+      await this.logOperation("createClaim", params);
+
+      return await prisma.claim.create({
+        data: params,
+      });
+    } catch (error) {
+      throw new DatabaseError("Failed to create claim", "CREATE_ERROR", error);
+    }
+  }
+
+  async updateClaim(id: string, data: { status: string; txHash?: string }) {
+    try {
+      return await prisma.claim.update({
+        where: { id },
+        data,
+      });
+    } catch (error) {
+      throw new DatabaseError("Failed to update claim", "UPDATE_ERROR", error);
+    }
+  }
+
+  async getContributorClaims(contributorId: string) {
+    try {
+      return await prisma.claim.findMany({
+        where: { contributorId },
+        include: {
+          distribution: true,
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get contributor claims",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
 }
 
 // Export a singleton instance
