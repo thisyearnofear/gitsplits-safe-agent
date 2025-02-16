@@ -26,6 +26,22 @@ const SplitsContractSchema = z.object({
   contributors: z.array(ContributorSchema),
 });
 
+const VerificationSessionSchema = z.object({
+  contributorId: z.string(),
+  nonce: z.string(),
+  message: z.string(),
+  status: z.enum(["PENDING", "COMPLETED", "EXPIRED"]),
+  expiresAt: z.date(),
+});
+
+// Add new schema for repository analysis cache
+const RepositoryAnalysisCacheSchema = z.object({
+  owner: z.string(),
+  repo: z.string(),
+  analysis: z.any(),
+  timestamp: z.date(),
+});
+
 // Create a singleton instance
 const prisma = new PrismaClient({
   log: ["query", "error", "warn"],
@@ -36,6 +52,25 @@ export class DatabaseError extends Error {
     super(message);
     this.name = "DatabaseError";
   }
+}
+
+// Update the ContributorWithVerification interface
+interface ContributorWithVerification {
+  id: string;
+  githubUsername: string;
+  verificationStatus: string;
+  verificationSessions: Array<{
+    id: string;
+    createdAt: Date;
+    status: string;
+  }>;
+}
+
+interface VerificationStatusResponse {
+  githubUsername: string;
+  isVerified: boolean;
+  lastVerificationAttempt?: Date;
+  status: string;
 }
 
 export class DatabaseService {
@@ -274,20 +309,48 @@ export class DatabaseService {
     }
   }
 
-  async completeVerificationSession(id: string) {
+  async completeVerificationSession(sessionId: string) {
     try {
-      await this.logOperation("completeVerificationSession", { id });
-
-      return await prisma.verificationSession.update({
-        where: { id },
+      const session = await prisma.verificationSession.update({
+        where: { id: sessionId },
         data: {
           status: "COMPLETED",
           verifiedAt: new Date(),
         },
       });
+
+      // Also update the contributor's verification status
+      if (session) {
+        await prisma.contributor.update({
+          where: { id: session.contributorId },
+          data: {
+            verificationStatus: "VERIFIED",
+            verifiedAt: new Date(),
+          },
+        });
+      }
+
+      return session;
     } catch (error) {
       throw new DatabaseError(
         "Failed to complete verification session",
+        "UPDATE_ERROR",
+        error
+      );
+    }
+  }
+
+  async expireVerificationSession(sessionId: string) {
+    try {
+      return await prisma.verificationSession.update({
+        where: { id: sessionId },
+        data: {
+          status: "EXPIRED",
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to expire verification session",
         "UPDATE_ERROR",
         error
       );
@@ -404,6 +467,174 @@ export class DatabaseService {
   private async encryptKey(key: string): Promise<string> {
     // TODO: Implement proper encryption using KMS or similar
     return ethers.keccak256(ethers.toUtf8Bytes(key));
+  }
+
+  // Verification Methods
+  async getLatestVerificationSession(githubUsername: string) {
+    try {
+      const contributor = await prisma.contributor.findFirst({
+        where: { githubUsername },
+      });
+
+      if (!contributor) {
+        throw new DatabaseError("Contributor not found", "QUERY_ERROR");
+      }
+
+      return await prisma.verificationSession.findFirst({
+        where: { contributorId: contributor.id },
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get verification session",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  async isContributorVerified(githubUsername: string): Promise<boolean> {
+    try {
+      const session = await this.getLatestVerificationSession(githubUsername);
+      return session?.status === "COMPLETED";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Repository Analysis Cache
+  async cacheRepositoryAnalysis(params: {
+    owner: string;
+    repo: string;
+    analysis: any;
+  }) {
+    try {
+      const validated = RepositoryAnalysisCacheSchema.parse({
+        ...params,
+        timestamp: new Date(),
+      });
+
+      await this.logOperation("cacheRepositoryAnalysis", validated);
+
+      return await prisma.repositoryAnalysisCache.upsert({
+        where: {
+          owner_repo: {
+            owner: validated.owner,
+            repo: validated.repo,
+          },
+        },
+        update: {
+          analysis: validated.analysis,
+          timestamp: validated.timestamp,
+        },
+        create: {
+          owner: validated.owner,
+          repo: validated.repo,
+          analysis: validated.analysis,
+          timestamp: validated.timestamp,
+        },
+      });
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to cache repository analysis",
+        "CACHE_ERROR",
+        error
+      );
+    }
+  }
+
+  async getRepositoryAnalysisCache(owner: string, repo: string) {
+    try {
+      const cache = await prisma.repositoryAnalysisCache.findUnique({
+        where: {
+          owner_repo: { owner, repo },
+        },
+      });
+
+      if (!cache) return null;
+
+      // Check if cache is expired (24 hours)
+      const cacheAge = Date.now() - cache.timestamp.getTime();
+      if (cacheAge > 24 * 60 * 60 * 1000) {
+        await prisma.repositoryAnalysisCache.delete({
+          where: { id: cache.id },
+        });
+        return null;
+      }
+
+      return cache;
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get repository analysis cache",
+        "CACHE_ERROR",
+        error
+      );
+    }
+  }
+
+  // Batch Verification Status
+  async getVerificationStatusForContributors(
+    githubUsernames: string[]
+  ): Promise<VerificationStatusResponse[]> {
+    try {
+      const contributors = await prisma.contributor.findMany({
+        where: {
+          githubUsername: {
+            in: githubUsernames,
+          },
+        },
+        include: {
+          verificationSessions: {
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 1,
+          },
+        },
+      });
+
+      return contributors.map((contributor: ContributorWithVerification) => ({
+        githubUsername: contributor.githubUsername,
+        isVerified: contributor.verificationStatus === "VERIFIED",
+        lastVerificationAttempt: contributor.verificationSessions[0]?.createdAt,
+        status: contributor.verificationStatus,
+      }));
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to get verification status for contributors",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  // Verification Session Management
+  async cleanupExpiredVerificationSessions() {
+    try {
+      const expiredSessions = await prisma.verificationSession.updateMany({
+        where: {
+          status: "PENDING",
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+        data: {
+          status: "EXPIRED",
+        },
+      });
+
+      await this.logOperation("cleanupExpiredVerificationSessions", {
+        expiredCount: expiredSessions.count,
+      });
+
+      return expiredSessions.count;
+    } catch (error) {
+      throw new DatabaseError(
+        "Failed to cleanup expired verification sessions",
+        "UPDATE_ERROR",
+        error
+      );
+    }
   }
 }
 

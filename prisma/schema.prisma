@@ -113,4 +113,15 @@ model AccessLog {
 
   @@index([accessKeyId])
   @@index([safeId])
+}
+
+model RepositoryAnalysisCache {
+  id        String   @id @default(uuid())
+  owner     String
+  repo      String
+  analysis  Json
+  timestamp DateTime @default(now())
+
+  @@unique([owner, repo], name: "owner_repo")
+  @@map("repository_analysis_cache")
 } 

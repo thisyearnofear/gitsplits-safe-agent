@@ -11,7 +11,8 @@
     "db:deploy": "dotenv -e .env -- prisma migrate deploy",
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:generate": "prisma generate",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:memory": "NODE_ENV=test tsx --tsconfig tsconfig.test.json scripts/test-memory-verification.ts"
   },
   "dependencies": {
     "@0xsplits/splits-sdk": "^5.0.0",
@@ -49,5 +50,11 @@
     "tailwindcss": "^3.4.1",
     "tsx": "^4.19.2",
     "typescript": "^5"
+  },
+  "type": "module",
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
   }
 }
